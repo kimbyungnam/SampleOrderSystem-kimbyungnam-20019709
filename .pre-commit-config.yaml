@@ -38,13 +38,6 @@ repos:
         name: ruff format
         stages: [pre-commit]
 
--   repo: https://github.com/DetachHead/basedpyright-prek-mirror
-    rev: 1.39.9
-    hooks:
-    -   id: basedpyright
-        stages: [pre-commit]
-
-
 -   repo: https://github.com/commitizen-tools/commitizen
     rev: v4.16.4
     hooks:
