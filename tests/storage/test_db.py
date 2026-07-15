@@ -100,3 +100,22 @@ def test_production_jobs_check_constraint_rejects_invalid_status(
             "VALUES (1, 'S1', 2, 3, 30.0, 'BOGUS', '2026-01-01T00:00:00')"
         )
     conn.close()
+
+
+def test_orders_check_constraint_accepts_every_order_status_value(
+    tmp_path: Path,
+) -> None:
+    from semi.domain.models import OrderStatus
+
+    conn = connect_db(tmp_path / "test.db")
+    conn.execute(
+        "INSERT INTO samples (sample_id, name, avg_production_seconds, yield_rate) "
+        "VALUES ('S1', 'wafer', 10.0, 0.9)"
+    )
+    for status in OrderStatus:
+        conn.execute(
+            "INSERT INTO orders (sample_id, customer_name, quantity, status, created_at) "
+            "VALUES ('S1', 'acme', 1, ?, '2026-01-01T00:00:00')",
+            (status.value,),
+        )
+    conn.close()
