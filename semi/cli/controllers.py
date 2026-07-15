@@ -74,3 +74,20 @@ class MonitoringMenuController:
                 views.render_order_counts(self._service.count_by_status())
             elif choice == "stock_status":
                 views.render_stock_status(self._service.stock_status())
+
+
+class ProductionMenuController:
+    label = "생산 라인"
+
+    def __init__(self, production_service) -> None:
+        self._service = production_service
+
+    def run(self) -> None:
+        while True:
+            choice = views.render_production_menu()
+            if choice == "back":
+                return
+            elif choice == "current":
+                views.render_current_production(self._service.get_current_status())
+            elif choice == "queue":
+                views.render_production_queue(self._service.list_queue_status())
