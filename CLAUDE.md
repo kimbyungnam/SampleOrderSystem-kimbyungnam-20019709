@@ -8,6 +8,8 @@ This is a pre-implementation repository. Only `semi/__init__.py` (empty) exists 
 
 ## Commands
 
+This project targets Python 3.14+
+
 This project uses `flit_core` as the build backend and installs dev tooling via the `dev` extra.
 
 ```bash
