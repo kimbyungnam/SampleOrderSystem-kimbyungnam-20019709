@@ -33,16 +33,19 @@ semi/cli/
 ## 2. `menu_loop.py` — `MenuController` Protocol과 메인 루프
 
 ```python
-from typing import Protocol
+from typing import Callable, Protocol
 
 class MenuController(Protocol):
     label: str                  # 메인 메뉴에 표시될 이름 (예: "시료 관리")
     def run(self) -> None: ...  # 서브메뉴 루프 진입점
 
 
-def main_loop(controllers: list[MenuController]) -> None:
+def main_loop(
+    controllers: list[MenuController],
+    render_main_menu: Callable[[list[str]], int | str],
+) -> None:
     while True:
-        choice = render_main_menu([c.label for c in controllers])  # views.py 호출
+        choice = render_main_menu([c.label for c in controllers])
         if choice == "exit":
             break
         try:
@@ -56,6 +59,13 @@ def main_loop(controllers: list[MenuController]) -> None:
 - `MenuController`는 `Protocol`(덕 타이핑)이다 — `label` 속성과 `run()` 메서드만 있으면 명시적 상속 없이 리스트에 넣을 수 있다.
 - `controllers`는 `app.py`가 조립해 넘기는 **명시적 리스트**다. 새 메뉴 추가 시 변경 지점은 `controllers.py`에 클래스 하나 추가, `app.py`의 이 리스트에 인스턴스 한 줄 추가, 단 두 곳뿐이다. `menu_loop.py`는 손대지 않는다.
 - 예외 처리는 기존 설계와 동일하게 **`main_loop`의 dispatch 지점(`controllers[choice].run()` 호출부) 한 곳**에서만 잡는다. 각 Controller의 `run()`은 서브메뉴 루프를 돌며 서비스 호출 도중 발생한 `DomainError`/`NotFoundError`를 잡지 않고 그대로 전파한다.
+- `main_loop`은 `render_main_menu`를 `views.py`에서 직접 import하지 않고 **파라미터로 주입받는다**. `menu_loop.py`가 `views` 모듈을 직접 참조하면, `main_loop`의 루프/디스패치/예외 처리 로직만 검증하려 해도 실제 `print`/`input`을 우회하기 위해 `views` 모듈 전체를 몽키패치해야 한다. 함수를 인자로 주입하면 테스트 시 `render_main_menu`에 순수 함수(예: `lambda labels: "exit"`)를 대체해 넣어 stdin/stdout 없이 루프 로직만 독립적으로 검증할 수 있다. `app.py`에서는 `main_loop(controllers, render_main_menu=render_main_menu)` 형태로 호출한다 (§5).
+
+### 2.1 잘못된 메인 메뉴 입력 처리
+
+`render_main_menu`가 반환하는 `choice`가 유효한 인덱스라는 보장은 없다 — 사용자가 숫자가 아닌 값을 입력하거나(파싱 실패) 목록 범위를 벗어난 번호를 입력할 수 있다. 이 두 경우는 `controllers[choice].run()`에서 각각 파싱 단계 또는 인덱싱 단계의 예외로 나타나지만, `main_loop`이 캐치하는 예외는 `DomainError`/`NotFoundError`뿐이므로 그대로 두면 콘솔 앱 전체가 크래시한다.
+
+**원칙**: 잘못된 메인 메뉴 입력은 §4의 서브메뉴 fail-safe 원칙과 동일하게 **`views.py` 레이어에서 흡수**한다 — `render_main_menu`는 파싱 실패나 범위 초과 입력에 대해 예외를 던지는 대신 재입력을 요구하고, 유효한 인덱스 또는 `"exit"`만을 반환값으로 보장한다. 이로써 `main_loop`은 `choice`가 항상 유효하다고 가정할 수 있고, dispatch 지점의 예외 처리는 `DomainError`/`NotFoundError`만 다루면 된다.
 
 ## 3. `controllers.py` — 메뉴별 Controller 클래스
 
@@ -96,7 +106,7 @@ class SampleMenuController:
 
 ```python
 def render_main_menu(labels: list[str]) -> int | Literal["exit"]:
-    ...  # 번호 목록 출력, 입력 파싱 후 인덱스 또는 "exit" 반환
+    ...  # 번호 목록 출력, 입력 파싱/범위 검증 후 유효한 인덱스 또는 "exit" 반환 (실패 시 재입력 요구, §2.1)
 
 def render_sample_menu() -> str: ...          # "register" | "list" | "search" | "back"
 def prompt_sample_registration() -> dict: ... # sample_id, name, avg_production_seconds, yield_rate 입력받아 dict로 반환
@@ -109,6 +119,7 @@ def render_stock_status(statuses: list[SampleStockStatus]) -> None:
 
 - `views.py`의 함수는 서비스나 도메인 로직을 호출하지 않는다 — 오직 `print`/`input`과 도메인 객체(`Sample`, `Order`, `SampleStockStatus` 등) 렌더링만 담당한다. 이 경계 덕분에 출력 포맷 변경(표 형식 개선, 다국어화 등)이 Controller/서비스 코드에 영향을 주지 않는다.
 - services 설계 문서(§6)에서 "`StockStatus`는 영문 멤버로 두고 한글 표시는 cli 레이어가 매핑한다"고 명시한 바에 따라, 이 매핑은 `views.py`에 위치한다.
+- **입력 파싱 fail-safe 원칙**: `views.py`의 모든 입력 파싱 함수는 인식할 수 없는 입력에 대해 예외를 던지지 않고 안전한 기본값으로 처리한다. 서브메뉴(`render_sample_menu` 등)는 인식하지 못한 입력을 `"back"`(상위 메뉴로 복귀)으로 매핑하고, 메인 메뉴(`render_main_menu`)는 숫자가 아니거나 범위를 벗어난 입력에 대해 크래시 대신 재입력을 요구한다(§2.1). 이 원칙 덕분에 Controller/`main_loop`은 잘못된 사용자 입력을 별도로 방어할 필요 없이, `views.py`가 반환하는 값이 항상 유효하다고 가정할 수 있다.
 
 ## 5. `app.py` — 진입점 및 조립
 
@@ -137,7 +148,7 @@ def main() -> None:
     start_worker(db_path, lock)
 
     try:
-        main_loop(controllers)
+        main_loop(controllers, render_main_menu=render_main_menu)
     except KeyboardInterrupt:
         print("\n종료합니다.")
     finally:
