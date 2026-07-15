@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import StrEnum
 
 
@@ -13,3 +14,12 @@ class JobStatus(StrEnum):
     QUEUED = "QUEUED"
     IN_PROGRESS = "IN_PROGRESS"
     DONE = "DONE"
+
+
+@dataclass(frozen=True)
+class Sample:
+    sample_id: str
+    name: str
+    avg_production_seconds: float
+    yield_rate: float
+    stock_quantity: int
