@@ -1,4 +1,4 @@
-from semi.domain.models import Sample
+from semi.domain.models import Order, Sample
 
 
 def _prompt_float(prompt: str) -> float:
@@ -70,3 +70,64 @@ def render_sample_list(samples: list[Sample]) -> None:
 
 def render_sample_registered(sample: Sample) -> None:
     print(f"시료 등록 완료: {sample.sample_id} ({sample.name})")
+
+
+def _prompt_int(prompt: str) -> int:
+    while True:
+        raw = input(prompt).strip()
+        try:
+            return int(raw)
+        except ValueError:
+            print("[오류] 숫자를 입력하세요.")
+
+
+def render_order_menu() -> str:
+    print("\n--- 주문 접수 / 승인 / 거절 ---")
+    print("1. 주문 접수")
+    print("2. 승인/거절 대상 조회 및 처리")
+    print("0. 뒤로가기")
+    raw = input("선택: ").strip()
+    return {"1": "create", "2": "approve_reject"}.get(raw, "back")
+
+
+def prompt_order_creation() -> dict:
+    sample_id = input("시료 ID: ").strip()
+    customer_name = input("고객명: ").strip()
+    quantity = _prompt_int("주문 수량: ")
+    return {"sample_id": sample_id, "customer_name": customer_name, "quantity": quantity}
+
+
+def render_order_created(order: Order) -> None:
+    print(f"주문 접수 완료: 주문ID={order.order_id} (상태={order.status})")
+
+
+def render_reserved_orders(orders: list[Order]) -> None:
+    print("\n--- 접수 대기(RESERVED) 주문 ---")
+    if not orders:
+        print("대기 중인 주문이 없습니다.")
+        return
+    for order in orders:
+        print(
+            f"주문ID={order.order_id} | 시료={order.sample_id} "
+            f"| 고객={order.customer_name} | 수량={order.quantity}"
+        )
+
+
+def prompt_order_action(orders: list[Order]) -> tuple[int, str] | None:
+    valid_ids = {order.order_id for order in orders}
+    raw_id = input("처리할 주문 ID (0: 뒤로가기): ").strip()
+    try:
+        order_id = int(raw_id)
+    except ValueError:
+        return None
+    if order_id == 0 or order_id not in valid_ids:
+        return None
+    raw_action = input("승인(a) / 거절(r): ").strip().lower()
+    action = {"a": "approve", "r": "reject"}.get(raw_action)
+    if action is None:
+        return None
+    return order_id, action
+
+
+def render_order_result(order: Order) -> None:
+    print(f"주문 {order.order_id} 처리 완료: 상태={order.status}")
