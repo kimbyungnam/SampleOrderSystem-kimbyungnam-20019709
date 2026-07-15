@@ -121,17 +121,21 @@ def test_approve_queues_production_job_when_stock_insufficient(
 
 
 def test_approve_excludes_producing_orders_original_stock_claim_from_available_stock(
-    order_service, sample_repo
+    order_service, sample_repo, job_repo
 ):
     sample_repo.create("S1", "Wafer A", 10.0, 1.0)
+    sample_repo.increment_stock("S1", 3)
     first = order_service.create_order("S1", "ACME", 5)
-    order_service.approve(
-        first.order_id
-    )  # available 0 -> PRODUCING, claims 0 of existing stock
+    order_service.approve(first.order_id)
+    # available = 3 -> shortfall = 5 - 3 = 2 -> PRODUCING
+    # claim = quantity - shortfall = 5 - 2 = 3 (non-zero: this is what must be
+    # subtracted from available stock for later approvals)
+    first_job = job_repo.get_by_order_id(first.order_id)
+    assert first_job.shortfall_quantity == 2
 
-    sample_repo.increment_stock("S1", 3)  # simulate some other unrelated stock arriving
-    second = order_service.create_order("S1", "ACME", 2)
-    approved = order_service.approve(
-        second.order_id
-    )  # available = 3 - 0 (first's claim) = 3 >= 2
-    assert approved.status == OrderStatus.CONFIRMED
+    second = order_service.create_order("S1", "ACME", 3)
+    approved = order_service.approve(second.order_id)
+    # available = stock(3) - confirmed(0) - producing_claim(3) = 0 < 3 -> PRODUCING
+    # if the claim were not subtracted (e.g. bugged to 0), available would be
+    # 3 >= 3 and this would incorrectly come out CONFIRMED instead.
+    assert approved.status == OrderStatus.PRODUCING
