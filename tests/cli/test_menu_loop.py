@@ -1,5 +1,3 @@
-import pytest
-
 from semi.cli.menu_loop import main_loop
 from semi.services.exceptions import DomainError
 from semi.storage.exceptions import NotFoundError
