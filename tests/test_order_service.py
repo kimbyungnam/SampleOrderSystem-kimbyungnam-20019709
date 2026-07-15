@@ -139,3 +139,34 @@ def test_approve_excludes_producing_orders_original_stock_claim_from_available_s
     # if the claim were not subtracted (e.g. bugged to 0), available would be
     # 3 >= 3 and this would incorrectly come out CONFIRMED instead.
     assert approved.status == OrderStatus.PRODUCING
+
+
+def test_release_non_confirmed_order_raises_domain_error(order_service, sample_repo):
+    sample_repo.create("S1", "Wafer A", 10.0, 0.9)
+    order = order_service.create_order("S1", "ACME", 3)
+    with pytest.raises(DomainError):
+        order_service.release(order.order_id)
+
+
+def test_release_decrements_stock_and_transitions_to_release(
+    order_service, sample_repo
+):
+    sample_repo.create("S1", "Wafer A", 10.0, 0.9)
+    sample_repo.increment_stock("S1", 10)
+    order = order_service.create_order("S1", "ACME", 3)
+    order_service.approve(order.order_id)  # -> CONFIRMED, stock still 10
+
+    released = order_service.release(order.order_id)
+
+    assert released.status == OrderStatus.RELEASE
+    assert sample_repo.get_by_id("S1").stock_quantity == 7
+
+
+def test_release_already_released_order_raises_domain_error(order_service, sample_repo):
+    sample_repo.create("S1", "Wafer A", 10.0, 0.9)
+    sample_repo.increment_stock("S1", 10)
+    order = order_service.create_order("S1", "ACME", 3)
+    order_service.approve(order.order_id)
+    order_service.release(order.order_id)
+    with pytest.raises(DomainError):
+        order_service.release(order.order_id)

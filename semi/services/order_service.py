@@ -73,6 +73,22 @@ class OrderService:
                 self._order_repo.conn.rollback()
                 raise
 
+    def release(self, order_id) -> Order:
+        with self._lock:
+            try:
+                order = self._order_repo.get_by_id(order_id)
+                if order.status != OrderStatus.CONFIRMED:
+                    raise DomainError(
+                        f"order {order_id} is not CONFIRMED (status={order.status})"
+                    )
+                self._sample_repo.decrement_stock(order.sample_id, order.quantity)
+                self._order_repo.update_status(order_id, OrderStatus.RELEASE)
+                self._order_repo.conn.commit()
+                return self._order_repo.get_by_id(order_id)
+            except Exception:
+                self._order_repo.conn.rollback()
+                raise
+
     def _available_stock(self, sample) -> int:
         confirmed_sum = self._order_repo.sum_quantity_by_status(
             sample.sample_id, OrderStatus.CONFIRMED
