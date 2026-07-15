@@ -14,10 +14,10 @@ This project uses `flit_core` as the build backend and installs dev tooling via 
 
 ```bash
 pip install -e ".[dev]"      # install package + dev tools (ruff, commitizen, prek)
-prek install                 # install git hooks (pre-commit + commit-msg), see .pre-commit-config.yaml
 ruff check --fix .           # lint
 ruff check --select I --fix . # import sorting
 ruff format .                 # format
+cz check                    # commit rule
 ```
 
 There is no test suite yet. When one is added, wire the runner and single-test invocation into this file.
