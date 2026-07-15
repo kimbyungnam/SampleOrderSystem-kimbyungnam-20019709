@@ -27,6 +27,16 @@ services의 검증(예: `quantity > 0`, `0 < yield_rate <= 1`)은 DB의 `CHECK` 
 
 쓰기 트랜잭션(승인/거절/출고/tick)을 직렬화하는 `threading.Lock`은 `cli/app.py`(진입점)가 단 하나만 생성해, 메인 스레드의 `OrderService` 등과 백그라운드 워커 스레드의 `ProductionService`에 동일한 객체로 주입한다. 서비스는 생성자로 이 `Lock`을 받아 각 쓰기 메서드에서 `with self._lock:`으로 감싼다.
 
+각 서비스는 별도의 `conn` 생성자 인자를 받지 않는다 — 생성자로 주입받은 여러 repository 중 하나(예: `order_repo`)의 `.conn` 속성을 통해 트랜잭션을 커밋/롤백한다 (storage 설계 문서 3·4절 참조). 이 원자성 보장은 함께 주입된 모든 repository가 동일한 `sqlite3.Connection` 위에서 생성되었을 때만 성립하므로, 여러 repository를 받는 모든 서비스(`OrderService`, `ProductionService`)는 생성자에서 이를 assert로 검증한다:
+
+```python
+assert order_repo.conn is sample_repo.conn, "OrderRepository and SampleRepository must share the same connection"
+```
+
+구현 시 다음 두 시나리오를 테스트로 검증한다:
+- **동시성 테스트**: 스레드마다 독립된 connection으로 동일 자원(재고)에 경합하는 두 요청을 동시에 실행해, 정확히 하나만 성공하는지 확인.
+- **롤백 테스트**: 다중 repository 호출 중 하나를 실패시켜, 그 이전 호출의 변경분까지 함께 롤백되는지(원자성) 확인.
+
 ## 3. `sample_service.py` — `SampleService(sample_repo)`
 
 - `register(sample_id, name, avg_production_seconds, yield_rate) -> Sample` — `avg_production_seconds > 0`, `0 < yield_rate <= 1`, 중복 `sample_id` 아님을 검증 (위반 시 `DomainError`)
