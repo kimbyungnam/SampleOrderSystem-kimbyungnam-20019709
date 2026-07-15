@@ -19,5 +19,10 @@ dev=[
     "datamonitor @ git+https://github.com/kimbyungnam/DataMonitor-kimbyungnam-20019709.git@main",
 ]
 
+test=[
+    "pytest>=9.1.1",
+    "pytest-mock>=3.15.1",
+]
+
 [project.urls]
 Home = "https://github.com/kimbyungnam/SampleOrderSystem-kimbyungnam-20019709"
