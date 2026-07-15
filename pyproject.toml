@@ -25,3 +25,6 @@ test=[
 
 [project.urls]
 Home = "https://github.com/kimbyungnam/SampleOrderSystem-kimbyungnam-20019709"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
