@@ -40,9 +40,9 @@ Don't use this for spec changes that don't originate from a PoC (just edit norma
    any call sites elsewhere in the same doc that the signature change affects).
    Do **not** add a "see PoC proposal" or "see docs/poc/..." reference — the spec must
    read as a complete design on its own.
-4. **Leave the PoC artifacts alone.** Don't delete the PoC proposal doc or PoC repo
-   unless the user explicitly asks — they're scratch/reference material, not spec
-   content. Don't commit PoC source code into this repo.
+4. **Commit the `docs/poc/*.md` proposal doc itself** (as a record of the findings that
+   drove the spec change) — but never the PoC's source code/tests, and never delete the
+   proposal doc or the PoC repo unless the user explicitly asks.
 5. **Commit the spec change with a `Reference:` trailer** pointing at the PoC's GitHub
    repo URL (get it from `git remote -v` in the PoC's working copy), so provenance is
    traceable without the spec itself linking out:
@@ -55,11 +55,15 @@ Don't use this for spec changes that don't originate from a PoC (just edit norma
    Reference: https://github.com/<owner>/<poc-repo>
    ```
 
+   Use the same `Reference:` trailer when committing the proposal doc (step 4).
+
 ## Common Mistakes
 
 - Citing PoC line numbers without reading the file — verify every citation before
   acting on it.
 - Leaving a "see proposal doc" link in the spec — defeats the point; the spec must be
   self-contained.
+- Leaving the `docs/poc/*.md` proposal doc uncommitted — it should be committed (with
+  the `Reference:` trailer), even though the spec itself never links to it.
 - Deleting the PoC proposal doc or PoC repo without being asked.
-- Committing PoC implementation files into the main project.
+- Committing PoC implementation files (the PoC's own source/tests) into the main project.
