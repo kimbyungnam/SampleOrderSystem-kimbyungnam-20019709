@@ -1,9 +1,10 @@
 import dataclasses
+from datetime import UTC, datetime
 from enum import StrEnum
 
 import pytest
 
-from semi.domain.models import JobStatus, OrderStatus, Sample
+from semi.domain.models import JobStatus, Order, OrderStatus, Sample
 
 
 def test_order_status_is_str_enum():
@@ -63,3 +64,37 @@ def test_sample_is_frozen():
     sample = _make_sample()
     with pytest.raises(dataclasses.FrozenInstanceError):
         sample.stock_quantity = 999
+
+
+def _make_order(**overrides):
+    fields = {
+        "order_id": 1,
+        "sample_id": "SMP-001",
+        "customer_name": "Acme Labs",
+        "quantity": 5,
+        "status": OrderStatus.RESERVED,
+        "created_at": datetime(2026, 7, 15, 9, 0, 0, tzinfo=UTC),
+    }
+    fields.update(overrides)
+    return Order(**fields)
+
+
+def test_order_holds_all_fields():
+    order = _make_order()
+    assert order.order_id == 1
+    assert order.sample_id == "SMP-001"
+    assert order.customer_name == "Acme Labs"
+    assert order.quantity == 5
+    assert order.status == OrderStatus.RESERVED
+    assert order.created_at == datetime(2026, 7, 15, 9, 0, 0, tzinfo=UTC)
+
+
+def test_order_is_frozen():
+    order = _make_order()
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        order.status = OrderStatus.CONFIRMED
+
+
+def test_order_created_at_is_datetime_not_str():
+    order = _make_order()
+    assert isinstance(order.created_at, datetime)
