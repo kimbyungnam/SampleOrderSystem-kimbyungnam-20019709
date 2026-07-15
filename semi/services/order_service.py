@@ -1,3 +1,5 @@
+import math
+
 from semi.domain.models import Order, OrderStatus
 from semi.services.exceptions import DomainError
 
@@ -38,3 +40,47 @@ class OrderService:
             except Exception:
                 self._order_repo.conn.rollback()
                 raise
+
+    def approve(self, order_id) -> Order:
+        with self._lock:
+            try:
+                order = self._order_repo.get_by_id(order_id)
+                if order.status != OrderStatus.RESERVED:
+                    raise DomainError(
+                        f"order {order_id} is not RESERVED (status={order.status})"
+                    )
+                sample = self._sample_repo.get_by_id(order.sample_id)
+                available = self._available_stock(sample)
+                if available >= order.quantity:
+                    self._order_repo.update_status(order_id, OrderStatus.CONFIRMED)
+                else:
+                    shortfall = order.quantity - available
+                    actual_quantity = math.ceil(shortfall / sample.yield_rate)
+                    total_duration_seconds = (
+                        sample.avg_production_seconds * actual_quantity
+                    )
+                    self._job_repo.create(
+                        order_id,
+                        sample.sample_id,
+                        shortfall,
+                        actual_quantity,
+                        total_duration_seconds,
+                    )
+                    self._order_repo.update_status(order_id, OrderStatus.PRODUCING)
+                self._order_repo.conn.commit()
+                return self._order_repo.get_by_id(order_id)
+            except Exception:
+                self._order_repo.conn.rollback()
+                raise
+
+    def _available_stock(self, sample) -> int:
+        confirmed_sum = self._order_repo.sum_quantity_by_status(
+            sample.sample_id, OrderStatus.CONFIRMED
+        )
+        producing_reserved_sum = sum(
+            qty - shortfall
+            for qty, shortfall in self._job_repo.list_producing_with_shortfall(
+                sample.sample_id
+            )
+        )
+        return sample.stock_quantity - confirmed_sum - producing_reserved_sum

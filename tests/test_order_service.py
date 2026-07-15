@@ -59,3 +59,79 @@ def test_reject_non_reserved_order_raises_domain_error(order_service, sample_rep
 def test_reject_unknown_order_raises_not_found(order_service):
     with pytest.raises(NotFoundError):
         order_service.reject(999)
+
+
+def test_approve_non_reserved_order_raises_domain_error(order_service, sample_repo):
+    sample_repo.create("S1", "Wafer A", 10.0, 0.9)
+    order = order_service.create_order("S1", "ACME", 3)
+    order_service.reject(order.order_id)
+    with pytest.raises(DomainError):
+        order_service.approve(order.order_id)
+
+
+def test_approve_confirms_order_when_stock_sufficient(order_service, sample_repo):
+    sample_repo.create("S1", "Wafer A", 10.0, 0.9)
+    sample_repo.increment_stock("S1", 10)
+    order = order_service.create_order("S1", "ACME", 3)
+    approved = order_service.approve(order.order_id)
+    assert approved.status == OrderStatus.CONFIRMED
+    assert (
+        sample_repo.get_by_id("S1").stock_quantity == 10
+    )  # stock untouched at approval
+
+
+def test_approve_confirms_order_when_available_stock_exactly_matches_quantity(
+    order_service, sample_repo
+):
+    sample_repo.create("S1", "Wafer A", 10.0, 0.9)
+    sample_repo.increment_stock("S1", 3)
+    order = order_service.create_order("S1", "ACME", 3)
+    approved = order_service.approve(order.order_id)
+    assert approved.status == OrderStatus.CONFIRMED
+
+
+def test_approve_excludes_confirmed_orders_from_available_stock(
+    order_service, sample_repo
+):
+    sample_repo.create("S1", "Wafer A", 10.0, 0.9)
+    sample_repo.increment_stock("S1", 10)
+    already_confirmed = order_service.create_order("S1", "ACME", 8)
+    order_service.approve(already_confirmed.order_id)  # available 10 >= 8 -> CONFIRMED
+
+    new_order = order_service.create_order("S1", "ACME", 3)
+    approved = order_service.approve(new_order.order_id)  # available = 10 - 8 = 2 < 3
+    assert approved.status == OrderStatus.PRODUCING
+
+
+def test_approve_queues_production_job_when_stock_insufficient(
+    order_service, sample_repo, job_repo
+):
+    sample_repo.create(
+        "S1", "Wafer A", 10.0, 0.9
+    )  # avg_production_seconds=10, yield_rate=0.9
+    order = order_service.create_order("S1", "ACME", 5)  # available = 0 -> shortfall 5
+
+    approved = order_service.approve(order.order_id)
+
+    assert approved.status == OrderStatus.PRODUCING
+    job = job_repo.get_by_order_id(order.order_id)
+    assert job.shortfall_quantity == 5
+    assert job.actual_quantity == 6  # ceil(5 / 0.9) == 6
+    assert job.total_duration_seconds == 60.0  # 10 * 6
+
+
+def test_approve_excludes_producing_orders_original_stock_claim_from_available_stock(
+    order_service, sample_repo
+):
+    sample_repo.create("S1", "Wafer A", 10.0, 1.0)
+    first = order_service.create_order("S1", "ACME", 5)
+    order_service.approve(
+        first.order_id
+    )  # available 0 -> PRODUCING, claims 0 of existing stock
+
+    sample_repo.increment_stock("S1", 3)  # simulate some other unrelated stock arriving
+    second = order_service.create_order("S1", "ACME", 2)
+    approved = order_service.approve(
+        second.order_id
+    )  # available = 3 - 0 (first's claim) = 3 >= 2
+    assert approved.status == OrderStatus.CONFIRMED
