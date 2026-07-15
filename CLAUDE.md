@@ -23,6 +23,8 @@ basedpyright                  # type check
 
 There is no test suite yet. When one is added, wire the runner and single-test invocation into this file.
 
+The `dev` extra also installs two testing-support tools installed from the user's own repos: `dummydatagen` (dummy data generator) and `datamonitor` (data manager/monitor). Use these when testing — e.g. to seed samples/orders for manual or scripted verification and to inspect DB state — rather than hand-writing throwaway fixture data or ad hoc SQLite queries.
+
 Commits must follow Conventional Commits (enforced by the `commitizen` hook on `commit-msg`); use `cz commit` to build compliant messages interactively.
 
 ## Architecture (per DESIGN.md)

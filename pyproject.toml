@@ -15,6 +15,8 @@ dev=[
     "ruff>=0.15.21",
     "commitizen>=4.16.4",
     "basedpyright>=1.39.9",
+    "dummydatagen @ git+https://github.com/kimbyungnam/DummyDataGenerator-kimbyungnam-20019709.git@main",
+    "datamonitor @ git+https://github.com/kimbyungnam/DataMonitor-kimbyungnam-20019709.git@main",
 ]
 
 [project.urls]
