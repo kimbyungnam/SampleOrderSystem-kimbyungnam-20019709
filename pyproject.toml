@@ -1,0 +1,12 @@
+[build-system]
+requires = ["flit_core >=3.11,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "semi"
+authors = [{name = "kimbyungnam", email = "kimbyungnam@ajou.ac.kr"}]
+version = "0.0.1"
+description = "체계적인 시료 관리를 위한 반도체 시료생산주문관리 시스템"
+
+[project.urls]
+Home = "https://github.com/kimbyungnam/SampleOrderSystem-kimbyungnam-20019709"
