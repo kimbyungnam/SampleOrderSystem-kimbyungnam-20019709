@@ -4,41 +4,48 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-This is a pre-implementation repository. Only `semi/__init__.py` (empty) exists under the `semi` package; everything else is design documentation. Read `PRD.md` (requirements) and `DESIGN.md` (system design, package layout, DB schema, core flows) in full before writing any code — they define the domain rules this system must implement and are the source of truth, not this file.
+The `semi` package is implemented end-to-end: `domain/`, `storage/`, `services/`, `scheduler/`, and `cli/` all have working code, backed by a test suite under `tests/` (unit tests per layer plus `tests/integration` and `tests/acceptance`). Read `PRD.md` (requirements) and `DESIGN.md` (system design, package layout, DB schema, core flows) in full before changing domain behavior — they define the domain rules this system must implement and are the source of truth, not this file. Before merging or opening a PR after touching `semi/`, use the `doc-impl-consistency-reviewer` agent to check the change is still consistent with PRD.md/DESIGN.md (and any relevant `docs/superpowers/specs` or `docs/superpowers/plans`).
 
 ## Commands
 
 This project targets Python 3.14+
 
-This project uses `flit_core` as the build backend and installs dev tooling via the `dev` extra.
+This project uses `flit_core` as the build backend and installs dev tooling via the `dev` extra and the test runner via the `test` extra.
 
 ```bash
-pip install -e ".[dev]"      # install package + dev tools (ruff, commitizen, prek)
-ruff check --fix .           # lint
+pip install -e ".[dev,test]"  # install package + dev tools (ruff, commitizen, basedpyright) + pytest/pytest-mock
+ruff check --fix .            # lint
 ruff check --select I --fix . # import sorting
-ruff format .                 # format
-cz check                    # commit rule
+ruff format .                  # format
+cz check                      # commit rule
+pytest                        # run the full test suite
+pytest tests/path/to/test_file.py::test_name  # run a single test
 ```
-
-There is no test suite yet. When one is added, wire the runner and single-test invocation into this file.
 
 The `dev` extra also installs two testing-support tools installed from the user's own repos: `dummydatagen` (dummy data generator) and `datamonitor` (data manager/monitor). Use these when testing — e.g. to seed samples/orders for manual or scripted verification and to inspect DB state — rather than hand-writing throwaway fixture data or ad hoc SQLite queries.
 
-Commits must follow Conventional Commits (enforced by the `commitizen` hook on `commit-msg`); use `cz commit` to build compliant messages interactively.
+Commits must follow Conventional Commits; use `cz commit` to build compliant messages interactively (the `commitizen`/`prek` git hooks that used to enforce this on `commit-msg` have been removed, so `cz check` and manual message discipline are what keep commits compliant now).
 
 ## Architecture (per DESIGN.md)
 
 Single-process, two-thread console app: the main thread runs the console menu loop, and a daemon background worker thread advances production in real time (1s tick), independent of menu interaction. Both threads share the service/repository layers and a single SQLite file (WAL mode); writes are serialized through one process-wide `threading.Lock` in the service layer (approve/reject/release/tick) to prevent races between menu-driven transactions and the ticking worker.
 
-Planned package layout:
+Package layout (as implemented):
 ```
 semi/
-├── domain/       # Sample, Order, ProductionJob dataclasses; OrderStatus/JobStatus enums
-├── storage/      # db.py (connection/PRAGMA/schema init) + one repository per entity
-├── services/     # SampleService, OrderService, ProductionService, MonitoringService
+├── domain/       # models.py — Sample, Order, ProductionJob dataclasses; OrderStatus/JobStatus enums
+├── storage/      # db.py (connection/PRAGMA/schema init), _datetime.py, exceptions.py,
+│                 # sample_repository.py / order_repository.py / production_job_repository.py
+├── services/     # sample_service.py, order_service.py, production_service.py, monitoring_service.py,
+│                 # production_math.py (shortfall/actual-quantity/duration formula),
+│                 # transactional.py (TransactionalMixin — wraps the process-wide lock + commit/rollback),
+│                 # exceptions.py
 ├── scheduler/    # background_worker.py — daemon Thread calling ProductionService.tick() every 1s
-├── cli/          # app.py (entrypoint: init DB → start worker → menu loop), menus.py
+├── cli/          # app.py (entrypoint: init DB → start worker → menu loop), menu_loop.py,
+│                 # controllers.py (one *MenuController per domain area), views.py (prompts/rendering)
 ```
+
+Tests mirror this layout under `tests/` (`tests/domain`, `tests/storage`, `tests/cli`, `tests/scheduler`, top-level `tests/test_*_service.py`), plus `tests/integration` (real SQLite, no mocks) and `tests/acceptance` (end-to-end menu/scheduler flows).
 
 ### Domain model and core invariant
 
