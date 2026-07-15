@@ -1,6 +1,16 @@
-from datetime import datetime
+import math
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 
-from semi.domain.models import OrderStatus
+from semi.domain.models import OrderStatus, ProductionJob
+
+
+@dataclass(frozen=True)
+class ProductionJobStatus:
+    job: ProductionJob
+    progress_ratio: float
+    produced_so_far: int
+    estimated_completion_at: datetime
 
 
 class ProductionService:
@@ -43,3 +53,33 @@ class ProductionService:
         queue = self._job_repo.list_queued_fifo()
         if queue:
             self._job_repo.mark_in_progress(queue[0].job_id, datetime.now())
+
+    def get_current_status(self) -> ProductionJobStatus | None:
+        job = self._job_repo.get_current_in_progress()
+        if job is None:
+            return None
+        now = datetime.now()
+        elapsed = (now - job.started_at).total_seconds()
+        progress_ratio = min(1.0, elapsed / job.total_duration_seconds)
+        produced_so_far = math.floor(progress_ratio * job.actual_quantity)
+        estimated_completion_at = job.started_at + timedelta(
+            seconds=job.total_duration_seconds
+        )
+        return ProductionJobStatus(
+            job, progress_ratio, produced_so_far, estimated_completion_at
+        )
+
+    def list_queue_status(self) -> list[ProductionJobStatus]:
+        now = datetime.now()
+        current = self._job_repo.get_current_in_progress()
+        cumulative_seconds = 0.0
+        if current is not None:
+            elapsed = (now - current.started_at).total_seconds()
+            cumulative_seconds = max(0.0, current.total_duration_seconds - elapsed)
+
+        statuses = []
+        for job in self._job_repo.list_queued_fifo():
+            cumulative_seconds += job.total_duration_seconds
+            estimated_completion_at = now + timedelta(seconds=cumulative_seconds)
+            statuses.append(ProductionJobStatus(job, 0.0, 0, estimated_completion_at))
+        return statuses
