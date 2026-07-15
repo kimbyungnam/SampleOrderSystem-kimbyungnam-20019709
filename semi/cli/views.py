@@ -1,4 +1,5 @@
-from semi.domain.models import Order, Sample
+from semi.domain.models import Order, OrderStatus, Sample
+from semi.services.monitoring_service import StockStatus
 
 
 def _prompt_float(prompt: str) -> float:
@@ -131,3 +132,106 @@ def prompt_order_action(orders: list[Order]) -> tuple[int, str] | None:
 
 def render_order_result(order: Order) -> None:
     print(f"주문 {order.order_id} 처리 완료: 상태={order.status}")
+
+
+_ORDER_STATUS_LABELS = {
+    OrderStatus.RESERVED: "접수",
+    OrderStatus.CONFIRMED: "출고대기",
+    OrderStatus.PRODUCING: "생산중",
+    OrderStatus.RELEASE: "출고완료",
+}
+
+_STOCK_STATUS_LABELS = {
+    StockStatus.SUFFICIENT: "여유",
+    StockStatus.SHORT: "부족",
+    StockStatus.DEPLETED: "고갈",
+}
+
+
+def render_monitoring_menu() -> str:
+    print("\n--- 모니터링 ---")
+    print("1. 상태별 주문 수 확인")
+    print("2. 재고 현황 확인")
+    print("0. 뒤로가기")
+    raw = input("선택: ").strip()
+    return {"1": "order_counts", "2": "stock_status"}.get(raw, "back")
+
+
+def render_order_counts(counts: dict) -> None:
+    print("\n--- 상태별 주문 수 ---")
+    for status, count in counts.items():
+        print(f"{_ORDER_STATUS_LABELS[status]}: {count}")
+
+
+def render_stock_status(statuses: list) -> None:
+    print("\n--- 재고 현황 ---")
+    for entry in statuses:
+        label = _STOCK_STATUS_LABELS[entry.status]
+        print(
+            f"[{entry.sample.sample_id}] {entry.sample.name} | 재고={entry.sample.stock_quantity} "
+            f"| 미완료주문={entry.outstanding} | 상태={label}"
+        )
+
+
+def render_production_menu() -> str:
+    print("\n--- 생산 라인 ---")
+    print("1. 현재 생산 현황")
+    print("2. 생산 큐 조회")
+    print("0. 뒤로가기")
+    raw = input("선택: ").strip()
+    return {"1": "current", "2": "queue"}.get(raw, "back")
+
+
+def render_current_production(status) -> None:
+    print("\n--- 현재 생산 현황 ---")
+    if status is None:
+        print("현재 생산 중인 작업이 없습니다.")
+        return
+    job = status.job
+    print(
+        f"작업ID={job.job_id} | 주문ID={job.order_id} | 시료={job.sample_id} "
+        f"| 부족분={job.shortfall_quantity} | 실생산량={job.actual_quantity} "
+        f"| 진행률={status.progress_ratio:.0%} | 현재생산량={status.produced_so_far} "
+        f"| 예상완료={status.estimated_completion_at}"
+    )
+
+
+def render_production_queue(statuses: list) -> None:
+    print("\n--- 생산 대기열(FIFO) ---")
+    if not statuses:
+        print("대기 중인 생산 작업이 없습니다.")
+        return
+    for status in statuses:
+        job = status.job
+        print(
+            f"작업ID={job.job_id} | 주문ID={job.order_id} | 시료={job.sample_id} "
+            f"| 실생산량={job.actual_quantity} | 예상완료={status.estimated_completion_at}"
+        )
+
+
+def render_confirmed_orders(orders: list) -> None:
+    print("\n--- 출고 대기(CONFIRMED) 주문 ---")
+    if not orders:
+        print("출고 대기 중인 주문이 없습니다.")
+        return
+    for order in orders:
+        print(
+            f"주문ID={order.order_id} | 시료={order.sample_id} "
+            f"| 고객={order.customer_name} | 수량={order.quantity}"
+        )
+
+
+def prompt_release_selection(orders: list) -> int | None:
+    valid_ids = {order.order_id for order in orders}
+    raw_id = input("출고 처리할 주문 ID (0: 뒤로가기): ").strip()
+    try:
+        order_id = int(raw_id)
+    except ValueError:
+        return None
+    if order_id == 0 or order_id not in valid_ids:
+        return None
+    return order_id
+
+
+def render_release_result(order) -> None:
+    print(f"주문 {order.order_id} 출고 완료: 상태={order.status}")
