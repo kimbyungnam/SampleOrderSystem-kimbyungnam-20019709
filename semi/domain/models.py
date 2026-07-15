@@ -34,3 +34,16 @@ class Order:
     quantity: int
     status: OrderStatus
     created_at: datetime
+
+
+@dataclass(frozen=True)
+class ProductionJob:
+    job_id: int
+    order_id: int
+    sample_id: str
+    shortfall_quantity: int
+    actual_quantity: int
+    total_duration_seconds: float
+    status: JobStatus
+    enqueued_at: datetime
+    started_at: datetime | None

@@ -4,7 +4,7 @@ from enum import StrEnum
 
 import pytest
 
-from semi.domain.models import JobStatus, Order, OrderStatus, Sample
+from semi.domain.models import JobStatus, Order, OrderStatus, ProductionJob, Sample
 
 
 def test_order_status_is_str_enum():
@@ -98,3 +98,44 @@ def test_order_is_frozen():
 def test_order_created_at_is_datetime_not_str():
     order = _make_order()
     assert isinstance(order.created_at, datetime)
+
+
+def _make_production_job(**overrides):
+    fields = {
+        "job_id": 1,
+        "order_id": 1,
+        "sample_id": "SMP-001",
+        "shortfall_quantity": 3,
+        "actual_quantity": 4,
+        "total_duration_seconds": 50.0,
+        "status": JobStatus.QUEUED,
+        "enqueued_at": datetime(2026, 7, 15, 9, 0, 0, tzinfo=UTC),
+        "started_at": None,
+    }
+    fields.update(overrides)
+    return ProductionJob(**fields)
+
+
+def test_production_job_holds_all_fields():
+    job = _make_production_job()
+    assert job.job_id == 1
+    assert job.order_id == 1
+    assert job.sample_id == "SMP-001"
+    assert job.shortfall_quantity == 3
+    assert job.actual_quantity == 4
+    assert job.total_duration_seconds == 50.0
+    assert job.status == JobStatus.QUEUED
+    assert job.enqueued_at == datetime(2026, 7, 15, 9, 0, 0, tzinfo=UTC)
+    assert job.started_at is None
+
+
+def test_production_job_started_at_accepts_datetime_once_in_progress():
+    started = datetime(2026, 7, 15, 9, 5, 0, tzinfo=UTC)
+    job = _make_production_job(status=JobStatus.IN_PROGRESS, started_at=started)
+    assert job.started_at == started
+
+
+def test_production_job_is_frozen():
+    job = _make_production_job()
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        job.status = JobStatus.DONE
