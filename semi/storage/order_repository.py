@@ -1,4 +1,5 @@
 import sqlite3
+from collections.abc import Sequence
 from datetime import datetime
 
 from semi.domain.models import Order, OrderStatus
@@ -44,15 +45,10 @@ class OrderRepository:
         )
 
     def sum_quantity_by_status(self, sample_id: str, status: OrderStatus) -> int:
-        row = self.conn.execute(
-            "SELECT COALESCE(SUM(quantity), 0) AS total FROM orders "
-            "WHERE sample_id = ? AND status = ?",
-            (sample_id, status),
-        ).fetchone()
-        return row["total"]
+        return self.sum_quantity_by_statuses(sample_id, (status,))
 
     def sum_quantity_by_statuses(
-        self, sample_id: str, statuses: list[OrderStatus]
+        self, sample_id: str, statuses: Sequence[OrderStatus]
     ) -> int:
         placeholders = ",".join("?" for _ in statuses)
         row = self.conn.execute(
