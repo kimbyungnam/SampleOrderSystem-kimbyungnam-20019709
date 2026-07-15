@@ -47,7 +47,9 @@ def test_start_worker_ticks_and_completes_queued_production(tmp_path):
             break
         time.sleep(0.05)
     else:
-        pytest.fail(f"production job did not complete in time, last status={updated_status}")
+        pytest.fail(
+            f"production job did not complete in time, last status={updated_status}"
+        )
 
     assert sample_repo.get_by_id("S1").stock_quantity == 3
     assert job_repo.get_by_order_id(order.order_id).status == JobStatus.DONE

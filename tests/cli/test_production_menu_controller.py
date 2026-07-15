@@ -12,7 +12,9 @@ def test_run_renders_current_status_then_exits_on_back(mocker):
     service = MagicMock()
     current = MagicMock()
     service.get_current_status.return_value = current
-    mocker.patch.object(views, "render_production_menu", side_effect=["current", "back"])
+    mocker.patch.object(
+        views, "render_production_menu", side_effect=["current", "back"]
+    )
     render_current = mocker.patch.object(views, "render_current_production")
 
     ProductionMenuController(service).run()

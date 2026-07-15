@@ -28,7 +28,9 @@ def test_main_loop_dispatches_to_selected_controller_then_exits():
     controller_b = _FakeController("주문 접수")
     choices = iter([1, "exit"])
 
-    main_loop([controller_a, controller_b], render_main_menu=lambda labels: next(choices))
+    main_loop(
+        [controller_a, controller_b], render_main_menu=lambda labels: next(choices)
+    )
 
     assert controller_a.run_calls == 0
     assert controller_b.run_calls == 1

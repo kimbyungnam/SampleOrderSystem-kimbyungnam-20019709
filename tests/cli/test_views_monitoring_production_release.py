@@ -10,7 +10,9 @@ def _sample_stock_status(status, outstanding=5):
     from semi.domain.models import Sample
 
     return SampleStockStatus(
-        sample=Sample("S1", "Wafer A", 10.0, 0.9, 3), outstanding=outstanding, status=status
+        sample=Sample("S1", "Wafer A", 10.0, 0.9, 3),
+        outstanding=outstanding,
+        status=status,
     )
 
 

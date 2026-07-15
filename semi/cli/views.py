@@ -95,7 +95,11 @@ def prompt_order_creation() -> dict:
     sample_id = input("시료 ID: ").strip()
     customer_name = input("고객명: ").strip()
     quantity = _prompt_int("주문 수량: ")
-    return {"sample_id": sample_id, "customer_name": customer_name, "quantity": quantity}
+    return {
+        "sample_id": sample_id,
+        "customer_name": customer_name,
+        "quantity": quantity,
+    }
 
 
 def render_order_created(order: Order) -> None:

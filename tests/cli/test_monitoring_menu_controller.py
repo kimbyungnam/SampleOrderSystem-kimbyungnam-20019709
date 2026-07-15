@@ -12,7 +12,9 @@ def test_run_renders_order_counts_then_exits_on_back(mocker):
     service = MagicMock()
     counts = {"RESERVED": 2}
     service.count_by_status.return_value = counts
-    mocker.patch.object(views, "render_monitoring_menu", side_effect=["order_counts", "back"])
+    mocker.patch.object(
+        views, "render_monitoring_menu", side_effect=["order_counts", "back"]
+    )
     render_counts = mocker.patch.object(views, "render_order_counts")
 
     MonitoringMenuController(service).run()
@@ -24,7 +26,9 @@ def test_run_renders_stock_status_then_exits_on_back(mocker):
     service = MagicMock()
     statuses = [MagicMock()]
     service.stock_status.return_value = statuses
-    mocker.patch.object(views, "render_monitoring_menu", side_effect=["stock_status", "back"])
+    mocker.patch.object(
+        views, "render_monitoring_menu", side_effect=["stock_status", "back"]
+    )
     render_stock = mocker.patch.object(views, "render_stock_status")
 
     MonitoringMenuController(service).run()

@@ -24,7 +24,9 @@ def test_render_main_menu_returns_exit_for_zero():
         builtins.input = original_input
 
 
-def test_render_main_menu_reprompts_on_non_numeric_then_out_of_range_then_valid(mocker, capsys):
+def test_render_main_menu_reprompts_on_non_numeric_then_out_of_range_then_valid(
+    mocker, capsys
+):
     mocker.patch("builtins.input", side_effect=["abc", "9", "1"])
 
     result = views.render_main_menu(["시료 관리"])
@@ -54,9 +56,7 @@ def test_render_sample_menu_maps_unrecognized_input_to_back(mocker):
 
 
 def test_prompt_sample_registration_collects_all_fields(mocker):
-    mocker.patch(
-        "builtins.input", side_effect=["S1", "Wafer A", "12.5", "0.9"]
-    )
+    mocker.patch("builtins.input", side_effect=["S1", "Wafer A", "12.5", "0.9"])
 
     data = views.prompt_sample_registration()
 

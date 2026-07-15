@@ -11,7 +11,9 @@ def _order(order_id=1, status=OrderStatus.RESERVED):
 
 
 def test_label_is_order_menu():
-    assert OrderMenuController(MagicMock(), MagicMock()).label == "주문 접수 / 승인 / 거절"
+    assert (
+        OrderMenuController(MagicMock(), MagicMock()).label == "주문 접수 / 승인 / 거절"
+    )
 
 
 def test_run_creates_order_then_exits_on_back(mocker):
@@ -42,7 +44,9 @@ def test_run_approves_selected_reserved_order(mocker):
     monitoring_service.list_by_status.return_value = [reserved]
     approved = _order(order_id=3, status=OrderStatus.CONFIRMED)
     order_service.approve.return_value = approved
-    mocker.patch.object(views, "render_order_menu", side_effect=["approve_reject", "back"])
+    mocker.patch.object(
+        views, "render_order_menu", side_effect=["approve_reject", "back"]
+    )
     mocker.patch.object(views, "render_reserved_orders")
     mocker.patch.object(views, "prompt_order_action", return_value=(3, "approve"))
     render_result = mocker.patch.object(views, "render_order_result")
@@ -62,7 +66,9 @@ def test_run_rejects_selected_reserved_order(mocker):
     monitoring_service.list_by_status.return_value = [reserved]
     rejected = _order(order_id=4, status=OrderStatus.REJECTED)
     order_service.reject.return_value = rejected
-    mocker.patch.object(views, "render_order_menu", side_effect=["approve_reject", "back"])
+    mocker.patch.object(
+        views, "render_order_menu", side_effect=["approve_reject", "back"]
+    )
     mocker.patch.object(views, "render_reserved_orders")
     mocker.patch.object(views, "prompt_order_action", return_value=(4, "reject"))
     render_result = mocker.patch.object(views, "render_order_result")
@@ -78,7 +84,9 @@ def test_run_does_nothing_when_action_selection_is_none(mocker):
     order_service = MagicMock()
     monitoring_service = MagicMock()
     monitoring_service.list_by_status.return_value = [_order(order_id=5)]
-    mocker.patch.object(views, "render_order_menu", side_effect=["approve_reject", "back"])
+    mocker.patch.object(
+        views, "render_order_menu", side_effect=["approve_reject", "back"]
+    )
     mocker.patch.object(views, "render_reserved_orders")
     mocker.patch.object(views, "prompt_order_action", return_value=None)
 
@@ -92,7 +100,9 @@ def test_run_does_not_prompt_for_action_when_no_reserved_orders(mocker):
     order_service = MagicMock()
     monitoring_service = MagicMock()
     monitoring_service.list_by_status.return_value = []
-    mocker.patch.object(views, "render_order_menu", side_effect=["approve_reject", "back"])
+    mocker.patch.object(
+        views, "render_order_menu", side_effect=["approve_reject", "back"]
+    )
     mocker.patch.object(views, "render_reserved_orders")
     prompt_action = mocker.patch.object(views, "prompt_order_action")
 
