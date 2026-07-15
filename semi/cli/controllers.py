@@ -91,3 +91,23 @@ class ProductionMenuController:
                 views.render_current_production(self._service.get_current_status())
             elif choice == "queue":
                 views.render_production_queue(self._service.list_queue_status())
+
+
+class ReleaseMenuController:
+    label = "출고 처리"
+
+    def __init__(self, order_service, monitoring_service) -> None:
+        self._order_service = order_service
+        self._monitoring_service = monitoring_service
+
+    def run(self) -> None:
+        while True:
+            orders = self._monitoring_service.list_by_status(OrderStatus.CONFIRMED)
+            views.render_confirmed_orders(orders)
+            if not orders:
+                return
+            order_id = views.prompt_release_selection(orders)
+            if order_id is None:
+                return
+            order = self._order_service.release(order_id)
+            views.render_release_result(order)
