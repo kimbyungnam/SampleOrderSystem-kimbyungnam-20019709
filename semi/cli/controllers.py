@@ -57,3 +57,20 @@ class OrderMenuController:
         else:
             order = self._order_service.reject(order_id)
         views.render_order_result(order)
+
+
+class MonitoringMenuController:
+    label = "모니터링"
+
+    def __init__(self, monitoring_service) -> None:
+        self._service = monitoring_service
+
+    def run(self) -> None:
+        while True:
+            choice = views.render_monitoring_menu()
+            if choice == "back":
+                return
+            elif choice == "order_counts":
+                views.render_order_counts(self._service.count_by_status())
+            elif choice == "stock_status":
+                views.render_stock_status(self._service.stock_status())
