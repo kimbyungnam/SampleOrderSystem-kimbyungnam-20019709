@@ -89,7 +89,7 @@ def test_sum_quantity_by_status_returns_total(mock_conn) -> None:
     assert result == 12
     mock_conn.execute.assert_called_once_with(
         "SELECT COALESCE(SUM(quantity), 0) AS total FROM orders "
-        "WHERE sample_id = ? AND status = ?",
+        "WHERE sample_id = ? AND status IN (?)",
         ("S1", "CONFIRMED"),
     )
 

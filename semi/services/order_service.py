@@ -1,10 +1,10 @@
-import math
-
 from semi.domain.models import Order, OrderStatus
 from semi.services.exceptions import DomainError
+from semi.services.production_math import compute_shortfall_job
+from semi.services.transactional import TransactionalMixin
 
 
-class OrderService:
+class OrderService(TransactionalMixin):
     def __init__(self, order_repo, job_repo, sample_repo, lock):
         assert order_repo.conn is sample_repo.conn, (
             "OrderRepository and SampleRepository must share the same connection"
@@ -27,67 +27,55 @@ class OrderService:
         return order
 
     def reject(self, order_id) -> Order:
-        with self._lock:
-            try:
-                order = self._order_repo.get_by_id(order_id)
-                if order.status != OrderStatus.RESERVED:
-                    raise DomainError(
-                        f"order {order_id} is not RESERVED (status={order.status})"
-                    )
-                self._order_repo.update_status(order_id, OrderStatus.REJECTED)
-                self._order_repo.conn.commit()
-                return self._order_repo.get_by_id(order_id)
-            except Exception:
-                self._order_repo.conn.rollback()
-                raise
+        with self._transaction():
+            order = self._order_repo.get_by_id(order_id)
+            if order.status != OrderStatus.RESERVED:
+                raise DomainError(
+                    f"order {order_id} is not RESERVED (status={order.status})"
+                )
+            self._order_repo.update_status(order_id, OrderStatus.REJECTED)
+        return self._order_repo.get_by_id(order_id)
 
     def approve(self, order_id) -> Order:
-        with self._lock:
-            try:
-                order = self._order_repo.get_by_id(order_id)
-                if order.status != OrderStatus.RESERVED:
-                    raise DomainError(
-                        f"order {order_id} is not RESERVED (status={order.status})"
+        with self._transaction():
+            order = self._order_repo.get_by_id(order_id)
+            if order.status != OrderStatus.RESERVED:
+                raise DomainError(
+                    f"order {order_id} is not RESERVED (status={order.status})"
+                )
+            sample = self._sample_repo.get_by_id(order.sample_id)
+            available = self._available_stock(sample)
+            if available >= order.quantity:
+                self._order_repo.update_status(order_id, OrderStatus.CONFIRMED)
+            else:
+                shortfall, actual_quantity, total_duration_seconds = (
+                    compute_shortfall_job(
+                        order.quantity,
+                        available,
+                        sample.yield_rate,
+                        sample.avg_production_seconds,
                     )
-                sample = self._sample_repo.get_by_id(order.sample_id)
-                available = self._available_stock(sample)
-                if available >= order.quantity:
-                    self._order_repo.update_status(order_id, OrderStatus.CONFIRMED)
-                else:
-                    shortfall = order.quantity - available
-                    actual_quantity = math.ceil(shortfall / sample.yield_rate)
-                    total_duration_seconds = (
-                        sample.avg_production_seconds * actual_quantity
-                    )
-                    self._job_repo.create(
-                        order_id,
-                        sample.sample_id,
-                        shortfall,
-                        actual_quantity,
-                        total_duration_seconds,
-                    )
-                    self._order_repo.update_status(order_id, OrderStatus.PRODUCING)
-                self._order_repo.conn.commit()
-                return self._order_repo.get_by_id(order_id)
-            except Exception:
-                self._order_repo.conn.rollback()
-                raise
+                )
+                self._job_repo.create(
+                    order_id,
+                    sample.sample_id,
+                    shortfall,
+                    actual_quantity,
+                    total_duration_seconds,
+                )
+                self._order_repo.update_status(order_id, OrderStatus.PRODUCING)
+        return self._order_repo.get_by_id(order_id)
 
     def release(self, order_id) -> Order:
-        with self._lock:
-            try:
-                order = self._order_repo.get_by_id(order_id)
-                if order.status != OrderStatus.CONFIRMED:
-                    raise DomainError(
-                        f"order {order_id} is not CONFIRMED (status={order.status})"
-                    )
-                self._sample_repo.decrement_stock(order.sample_id, order.quantity)
-                self._order_repo.update_status(order_id, OrderStatus.RELEASE)
-                self._order_repo.conn.commit()
-                return self._order_repo.get_by_id(order_id)
-            except Exception:
-                self._order_repo.conn.rollback()
-                raise
+        with self._transaction():
+            order = self._order_repo.get_by_id(order_id)
+            if order.status != OrderStatus.CONFIRMED:
+                raise DomainError(
+                    f"order {order_id} is not CONFIRMED (status={order.status})"
+                )
+            self._sample_repo.decrement_stock(order.sample_id, order.quantity)
+            self._order_repo.update_status(order_id, OrderStatus.RELEASE)
+        return self._order_repo.get_by_id(order_id)
 
     def _available_stock(self, sample) -> int:
         confirmed_sum = self._order_repo.sum_quantity_by_status(

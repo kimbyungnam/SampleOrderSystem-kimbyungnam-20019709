@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from semi.domain.models import OrderStatus, ProductionJob
+from semi.services.transactional import TransactionalMixin
 
 
 @dataclass(frozen=True)
@@ -13,7 +14,7 @@ class ProductionJobStatus:
     estimated_completion_at: datetime
 
 
-class ProductionService:
+class ProductionService(TransactionalMixin):
     def __init__(self, order_repo, job_repo, sample_repo, lock):
         assert order_repo.conn is sample_repo.conn, (
             "OrderRepository and SampleRepository must share the same connection"
@@ -27,25 +28,20 @@ class ProductionService:
         self._lock = lock
 
     def tick(self) -> None:
-        with self._lock:
-            try:
-                self._promote_if_idle()
-                current = self._job_repo.get_current_in_progress()
-                if current is not None:
-                    elapsed = (datetime.now() - current.started_at).total_seconds()
-                    if elapsed >= current.total_duration_seconds:
-                        self._sample_repo.increment_stock(
-                            current.sample_id, current.actual_quantity
-                        )
-                        self._order_repo.update_status(
-                            current.order_id, OrderStatus.CONFIRMED
-                        )
-                        self._job_repo.mark_done(current.job_id)
-                        self._promote_if_idle()
-                self._order_repo.conn.commit()
-            except Exception:
-                self._order_repo.conn.rollback()
-                raise
+        with self._transaction():
+            self._promote_if_idle()
+            current = self._job_repo.get_current_in_progress()
+            if current is not None:
+                elapsed = (datetime.now() - current.started_at).total_seconds()
+                if elapsed >= current.total_duration_seconds:
+                    self._sample_repo.increment_stock(
+                        current.sample_id, current.actual_quantity
+                    )
+                    self._order_repo.update_status(
+                        current.order_id, OrderStatus.CONFIRMED
+                    )
+                    self._job_repo.mark_done(current.job_id)
+                    self._promote_if_idle()
 
     def _promote_if_idle(self) -> None:
         if self._job_repo.get_current_in_progress() is not None:

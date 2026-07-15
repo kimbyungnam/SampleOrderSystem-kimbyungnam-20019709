@@ -1,7 +1,12 @@
 import sqlite3
 from pathlib import Path
 
-SCHEMA_SQL = """
+from semi.domain.models import JobStatus, OrderStatus
+
+_ORDER_STATUSES = ", ".join(f"'{status.value}'" for status in OrderStatus)
+_JOB_STATUSES = ", ".join(f"'{status.value}'" for status in JobStatus)
+
+SCHEMA_SQL = f"""
 CREATE TABLE IF NOT EXISTS samples (
     sample_id             TEXT PRIMARY KEY,
     name                  TEXT NOT NULL,
@@ -15,8 +20,7 @@ CREATE TABLE IF NOT EXISTS orders (
     sample_id     TEXT NOT NULL REFERENCES samples(sample_id),
     customer_name TEXT NOT NULL,
     quantity      INTEGER NOT NULL CHECK (quantity > 0),
-    status        TEXT NOT NULL CHECK (status IN
-                    ('RESERVED','REJECTED','PRODUCING','CONFIRMED','RELEASE')),
+    status        TEXT NOT NULL CHECK (status IN ({_ORDER_STATUSES})),
     created_at    TEXT NOT NULL
 );
 
@@ -27,7 +31,7 @@ CREATE TABLE IF NOT EXISTS production_jobs (
     shortfall_quantity   INTEGER NOT NULL,
     actual_quantity      INTEGER NOT NULL,
     total_duration_seconds REAL NOT NULL,
-    status               TEXT NOT NULL CHECK (status IN ('QUEUED','IN_PROGRESS','DONE')),
+    status               TEXT NOT NULL CHECK (status IN ({_JOB_STATUSES})),
     enqueued_at          TEXT NOT NULL,
     started_at           TEXT
 );
