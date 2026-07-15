@@ -1,7 +1,6 @@
-import math
-
 from semi.domain.models import Order, OrderStatus
 from semi.services.exceptions import DomainError
+from semi.services.production_math import compute_shortfall_job
 from semi.services.transactional import TransactionalMixin
 
 
@@ -49,9 +48,14 @@ class OrderService(TransactionalMixin):
             if available >= order.quantity:
                 self._order_repo.update_status(order_id, OrderStatus.CONFIRMED)
             else:
-                shortfall = order.quantity - available
-                actual_quantity = math.ceil(shortfall / sample.yield_rate)
-                total_duration_seconds = sample.avg_production_seconds * actual_quantity
+                shortfall, actual_quantity, total_duration_seconds = (
+                    compute_shortfall_job(
+                        order.quantity,
+                        available,
+                        sample.yield_rate,
+                        sample.avg_production_seconds,
+                    )
+                )
                 self._job_repo.create(
                     order_id,
                     sample.sample_id,
