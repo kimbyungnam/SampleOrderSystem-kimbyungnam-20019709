@@ -8,5 +8,13 @@ authors = [{name = "kimbyungnam", email = "kimbyungnam@ajou.ac.kr"}]
 version = "0.0.1"
 description = "체계적인 시료 관리를 위한 반도체 시료생산주문관리 시스템"
 
+[project.optional-dependencies]
+dev=[
+    "prek>=0.4.9",
+    "ruff>=0.15.21",
+    "commitizen>=4.16.4",
+    "basedpyright>=1.39.9",
+]
+
 [project.urls]
 Home = "https://github.com/kimbyungnam/SampleOrderSystem-kimbyungnam-20019709"

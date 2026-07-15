@@ -1,0 +1,18 @@
+[tool.commitizen]
+name = "cz_conventional_commits"
+
+# Python 패키지 버전은 pyproject.toml의 [project].version을 기준으로 관리
+version_provider = "pep621"
+
+# Python 패키지 버전 체계
+version_scheme = "pep440"
+
+# git tag 형식: v0.1.0
+tag_format = "$version"
+
+# cz bump 시 CHANGELOG.md 자동 갱신
+update_changelog_on_bump = true
+
+# 0.x.x 개발 단계에서는 breaking change가 와도 1.0.0으로 올리지 않고 0.y.0으로 올림
+# 1.0.0 이상 안정화된 패키지라면 false로 바꾸거나 제거
+major_version_zero = true
